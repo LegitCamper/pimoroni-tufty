@@ -2,12 +2,16 @@
 pub mod animation;
 pub mod app;
 pub mod buttons;
+pub mod cartridge;
 pub mod chip8;
 pub mod filename;
+pub mod love;
 pub mod memory;
 pub mod pack;
+pub mod pico8;
 pub mod png;
 pub mod read_cache;
+pub mod selection;
 pub mod wireless;
 #[cfg(feature = "alloc")]
 use core::alloc::Layout;

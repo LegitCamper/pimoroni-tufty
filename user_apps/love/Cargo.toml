@@ -1,0 +1,20 @@
+[package]
+name = "tufty-love"
+version = "0.1.0"
+edition = "2024"
+
+[features]
+default = []
+builtin = ["tufty/builtin"]
+
+[lib]
+test = false
+bench = false
+
+[dependencies]
+tufty = { path = "../../tufty" }
+selection_ui = { path = "../selection_ui" }
+embedded-graphics = "0.8.1"
+
+[build-dependencies]
+cc = "1.2.44"

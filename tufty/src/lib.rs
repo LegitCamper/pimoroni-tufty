@@ -2,6 +2,10 @@
 #![allow(static_mut_refs)]
 
 extern crate alloc;
+pub use tufty_sys::cartridge;
+pub use tufty_sys::love;
+pub use tufty_sys::pico8;
+pub use tufty_sys::selection;
 pub use tufty_sys::wireless;
 pub use tufty_sys::{app, app_metadata, buttons::Buttons, chip8};
 

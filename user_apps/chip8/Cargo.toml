@@ -22,5 +22,5 @@ bench = false
 
 [dependencies]
 tufty = { path = "../../tufty" }
-selection_ui = { path = "../../selection_ui" }
+selection_ui = { path = "../selection_ui" }
 embedded-graphics = "0.8.1"

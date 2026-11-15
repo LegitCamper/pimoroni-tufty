@@ -46,9 +46,13 @@ long-press-sleep gestures are not provided by this firmware.
   allocation tracking, pointer validation and framebuffer syscalls.
 - Replaces keyboard MCU with debounced GPIO + hot-pluggable Qw/ST Pad input.
 - Adds a paginated six-card launcher, titles, linked PNG icons and fallback art.
-- Links **Game Boy**, **CHIP-8 / Super-CHIP** and Snake into kernel flash.
+- Links **NES**, **SNES**, **Game Boy**, **Game Boy Color**, **Game Boy Advance**,
+  **CHIP-8 / Super-CHIP** and Snake into kernel flash.
   These builtins launch without an app pack or ELF loading. Optional external
   apps still use the validated ELF loader.
+- Shared ROM picker lives in `user_apps/selection_ui`: five cartridge rows,
+  high-contrast mint selection, page/count indicators, clipped filenames,
+  gamepad/front-button navigation, key repeat and an empty-library screen.
 - Game Boy fits the whole picture into 266x240, centered, with nearest-neighbor
   scaling. No cropped 320x288 image. Simultaneous buttons use the new bitmask API.
 - CHIP-8 includes an original animated demo when no ROMs are installed.
@@ -67,6 +71,7 @@ code. HOME is cooperative: a crashed or hung app may require RESET.
 
 Requirements: Rust/rustup (pinned nightly in `rust-toolchain.toml`), `just`, Python
 3, `arm-none-eabi-gcc`, ARM libc headers, and libclang for Game Boy's bindgen.
+Host tests additionally require a C compiler with AddressSanitizer support.
 Game Boy defaults to `/usr/arm-none-eabi/include`; set `ARM_INCLUDE` if different.
 No picolibc build, Python packages, USB utilities or new flashing tool needed.
 
@@ -101,7 +106,13 @@ Put legally obtained ROMs beneath `dist/content`, then rerun `just image`:
 dist/content/
   apps/              # optional third-party .bin ELFs; no builtin copies required
   games/gameboy/     # .gb ROMs, monochrome Game Boy; not GBC
+  games/nes/         # .nes, iNES 1.0 NTSC, mappers 0/1/2/4
+  games/snes/        # .sfc / .smc, plain LoROM/HiROM
+  games/gbc/         # .gbc / .gb, SkyEmu color/backward-compatible core
+  games/gba/         # .gba, up to 4 MiB; experimental speed
   games/chip8/       # .ch8 / .sc8 ROMs
+  games/love/        # single-file .lua games for LOVE Mini
+  games/pico8/       # text .p8 carts for PICO-8 Mini
 ```
 
 No commercial ROMs are bundled. Packs support 256 files, UTF-8 paths shorter than
@@ -132,14 +143,18 @@ slab. It is now split into a **48 KiB kernel heap** and **200 KiB app arena**:
 - Core0 allocations stay in the kernel heap, independent of app lifetime.
 - Builtin core1 allocations use the app arena. Game Boy's context and cartridge
   RAM are allocated at launch, not permanently reserved in kernel `.bss`.
-  CHIP-8 state initializes in place too, avoiding large stack temporaries.
+  CHIP-8 state initializes in place too, avoiding large stack temporaries. NES
+  allocates its roughly 83 KiB native state in this same reusable SRAM arena.
 - ELF code/data/BSS is loaded into that same app arena (200 KiB image ceiling,
   subject to alignment and free capacity); standalone SDK heap allocations
   retain their existing PSRAM behavior.
 - Large builtin ROM byte buffers use `tufty::PsramBuffer` explicitly. Default
   builtin allocations never silently spill into PSRAM, keeping exclusive/CAS
-  atomics in SRAM. Future emulators can use the same arena without reserving
-  another per-emulator static heap.
+  atomics in SRAM. All four new consoles keep ROMs in PSRAM; SNES/GBC/GBA also
+  put their larger plain C state and framebuffers there. Only one session is live. GBA's
+  decode tables are part of that session, not a permanent SRAM reservation.
+  A 2.5 KiB SRAM strip transfers four scanlines at a time. No second full-screen
+  conversion buffer or separate per-emulator heap is reserved.
 - Normal return drops state, clears Game Boy callbacks/display ownership,
   reclaims remaining tracked app allocations, then releases any ELF image.
   An SRAM-empty assertion guards repeated launches. Kernel memory is never reset.
@@ -153,6 +168,56 @@ The 32 KiB core1 stack and 150 KiB display framebuffer remain separate reservati
 `just image` no longer copies builtin ELF files into `dist/content/apps`. Remove
 old generated copies there if migrating an existing pack, otherwise they appear
 as separate external apps. `just apps` remains useful for testing loader support.
+The new `consoles` library is builtin-only: its combined code exceeds the 200 KiB
+ELF arena. `just apps` still builds standalone GB, CHIP-8 and Snake, not fake or
+unloadable console ELFs.
+
+## Lua / LOVE Mini
+
+The launcher also includes a small Lua 5.4 game runner with LÖVE-style
+load/update/draw callbacks, button events, basic shapes and text. The original
+**Orbit Dodge** demo is bundled. Put additional single-file scripts in
+`dist/content/games/love/*.lua` and rebuild with `just image`.
+
+This is **not full desktop LÖVE compatibility**: no `.love` archives, images,
+audio, shaders, filesystem, network or physics APIs. Lua uses a bounded 512 KiB
+PSRAM heap and a PSRAM framebuffer; instruction and drawing budgets stop
+runaway scripts. See `user_apps/love/README.md` for API, limits and controls.
+
+## PICO-8 Mini
+
+PICO-8 Mini reuses the same bounded Lua runner. It loads text `.p8` carts that
+use graphics, maps, flags, palettes and buttons. It is not official PICO-8 and
+not full PICO-8 emulation. It does not support PNG carts, audio,
+memory-poke APIs or PICO-only syntax such as `+=`. See
+`user_apps/love/PICO8.md`.
+No badge execution or FPS has been validated.
+
+## Console compatibility
+
+These are real native CPU/PPU cores, not placeholder launchers. **No badge FPS or
+commercial-game compatibility is claimed. SNES and GBA are experimental and may
+be too slow for useful play at the stock clock.** Host smoke tests execute original
+tiny programs, check rendered pixels, and repeatedly release/recreate each core
+under AddressSanitizer. Hardware testing remains required.
+
+| System | Core | Admitted cartridge subset |
+| --- | --- | --- |
+| NES | agnes | NTSC iNES 1.0; mappers 0/1/2/4; power-of-two PRG/CHR banks; no trainers, NES 2.0 or four-screen mirroring |
+| SNES | LakeSnes | 32 KiB-4 MiB power-of-two LoROM/HiROM, optional 512-byte copier header, up to 128 KiB cartridge RAM; no SA-1, Super FX, DSP or other enhancement chips |
+| GB/GBC | SkyEmu | Header-size/checksum checked, up to 4 MiB, ROM-only/MBC1/MBC2/MBC3/MBC5; no SGB borders, link cable, camera or motion cartridges |
+| GBA | SkyEmu | Header-checksummed, four-byte-aligned ROMs up to 4 MiB; larger games rejected rather than overcommitting PSRAM |
+
+GB/GBC skips proprietary boot ROMs. GBA uses the MIT Cult-of-GBA replacement BIOS
+included upstream; no Nintendo BIOS is bundled. New cores keep cartridge RAM only
+for the current session: **saves disappear on exit**, with acknowledgement before
+launch. RTC is synthetic, not battery-backed or synchronized. No audio output;
+guest sound timers and the SNES APU still run where games depend on them.
+See `user_apps/consoles/THIRD_PARTY.md` for pinned commits, licenses and local patches.
+
+NES is centered at 256x240. SNES reduces its 512-wide output to 256x240, retaining
+letterboxing and one interlaced field. GBC scales to 266x240; GBA to 320x213.
+No arbitrary BIOS discovery, save-state UI, cheats or per-game settings included.
 
 ## Controls and app API
 
@@ -160,6 +225,13 @@ Launcher: UP/DOWN browse; pad LEFT/RIGHT also browse; A launches. HOME exits app
 that cooperate. Snake works without the pad: UP/DOWN plus A=left, B=right.
 Game Boy needs the pad for full controls; A/B are actions, C or START is Start,
 SELECT is Select, HOME or pad X exits.
+
+Shared ROM picker: UP/DOWN moves, A/START launches, B/HOME backs out, C/RIGHT pages
+forward and LEFT pages back. New console games use pad directions, A/B, C/START
+and SELECT. SNES also uses X/Y; hold C+X for L or C+Y for R (chord suppresses Start
+and face actions). GBA maps X/Y to L/R. HOME or START+SELECT returns to launcher.
+Badge buttons alone cannot provide all directions; Qw/ST Pad is required for full
+NES/SNES/GB/GBC/GBA controls.
 
 CHIP-8 maps UP/DOWN/LEFT/RIGHT to 2/8/4/6, A/B to 5/0, X/Y to 1/3,
 C or START to F and SELECT to C. HOME or START+SELECT exits. Games requiring the
@@ -230,7 +302,8 @@ do not produce sound. No audio pins or output driver are configured.
 1. Boot with no pack; builtin cards and the CHIP-8 demo must remain available.
 2. Confirm full-screen orientation, RGB order, backlight, and HOME/RESET behavior.
 3. Exercise all five front buttons and simultaneous pad inputs; unplug/replug pad.
-4. Run Snake, bundled CHIP-8 demo, and a legally obtained Game Boy ROM.
+4. Run Snake, bundled CHIP-8 demo, and legally obtained GB, NES, SNES, GBC and GBA
+   cartridges within the documented limits. Measure speed; do not assume 60 FPS.
 5. Alternate builtin/ELF launches, including missing/invalid ROM errors; verify
    display ownership resets, arena reuse, and PSRAM cleanup.
 6. With the wifi build, verify scan results and timeout behavior.

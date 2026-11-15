@@ -52,7 +52,15 @@ fn builtins_execute_from_flash_without_per_emulator_sram_reservations() {
             symbols.push((std::str::from_utf8(name).unwrap(), symbol));
         }
     }
-    for entry in ["4gboy3run", "5chip83run", "5snake4main"] {
+    for entry in [
+        "4gboy3run",
+        "5chip83run",
+        "5snake4main",
+        "8consoles3nes",
+        "8consoles4snes",
+        "8consoles3gbc",
+        "8consoles3gba",
+    ] {
         let (_, symbol) = symbols
             .iter()
             .find(|(name, _)| name.contains(entry))
@@ -77,6 +85,8 @@ fn builtins_execute_from_flash_without_per_emulator_sram_reservations() {
             !name.contains("GAME_BOY")
                 && !name.contains("GAME_ROM")
                 && !name.contains("minigb_apu")
+                && !name.contains("arm7_lookup_table")
+                && !name.contains("arm7t_lookup_table")
         );
     }
 }

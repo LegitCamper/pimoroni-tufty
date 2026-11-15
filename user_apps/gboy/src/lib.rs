@@ -127,7 +127,9 @@ fn main() {
     let selection = {
         // SAFETY: the app core exclusively owns DISPLAY and releases this borrow before emulation.
         let display = unsafe { DISPLAY.as_mut().unwrap() };
-        let mut selection_ui = SelectionUi::new(&roms);
+        let mut selection_ui = SelectionUi::new(&roms)
+            .with_title("GAME BOY")
+            .with_hint("/games/gameboy/*.gb");
         match selection_ui.run_selection_ui(display) {
             Ok(maybe_sel) => maybe_sel,
             Err(e) => match e {

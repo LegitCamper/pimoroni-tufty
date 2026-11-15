@@ -1,6 +1,6 @@
 [workspace]
 resolver = "3"
-members = ["kernel", "tufty_sys", "tufty", "selection_ui", "user_apps/snake", "user_apps/gboy", "user_apps/chip8"]
+members = ["kernel", "tufty_sys", "tufty", "user_apps/selection_ui", "user_apps/snake", "user_apps/gboy", "user_apps/chip8", "user_apps/consoles", "user_apps/love"]
 
 [profile.release]
 opt-level = 3

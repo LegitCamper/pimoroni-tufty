@@ -192,6 +192,15 @@ dependencies = [
 ]
 
 [[package]]
+name = "consoles"
+version = "0.1.0"
+dependencies = [
+ "cc",
+ "selection_ui",
+ "tufty",
+]
+
+[[package]]
 name = "cortex-m"
 version = "0.7.7"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -677,27 +686,6 @@ dependencies = [
 ]
 
 [[package]]
-name = "embedded-layout"
-version = "0.4.2"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "9a90553247f2b05c59ac7894ea13d830636c2b1203fa03bff400eddbd1fa9f52"
-dependencies = [
- "embedded-graphics",
- "embedded-layout-macros",
-]
-
-[[package]]
-name = "embedded-layout-macros"
-version = "0.3.1"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "4f6e621fe4c7e05b695274b722dc0a60bacd1c8696b58191baa0154713d52400"
-dependencies = [
- "proc-macro2",
- "quote",
- "syn 2.0.110",
-]
-
-[[package]]
 name = "embedded-snake"
 version = "0.0.3"
 source = "git+https://github.com/LegitCamper/embedded-snake-rs#3986819c55819283dc5c1e89717d2a2f52e9b161"
@@ -719,17 +707,6 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "1763775e2323b7d5f0aa6090657f5e21cfa02ede71f5dc40eead06d64dcd15cc"
 dependencies = [
  "embedded-storage",
-]
-
-[[package]]
-name = "embedded-text"
-version = "0.7.3"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "6cf5c72c52db2f7dbe4a9c1ed81cd21301e8d66311b194fa41c04fb4f71843ba"
-dependencies = [
- "az",
- "embedded-graphics",
- "object-chain",
 ]
 
 [[package]]
@@ -1155,12 +1132,6 @@ dependencies = [
 ]
 
 [[package]]
-name = "object-chain"
-version = "0.1.3"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "41af26158b0f5530f7b79955006c2727cd23d0d8e7c3109dc316db0a919784dd"
-
-[[package]]
 name = "panic-probe"
 version = "0.3.2"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -1471,8 +1442,6 @@ name = "selection_ui"
 version = "0.1.0"
 dependencies = [
  "embedded-graphics",
- "embedded-layout",
- "embedded-text",
  "tufty",
 ]
 
@@ -1681,6 +1650,7 @@ name = "tufty-kernel"
 version = "0.1.0"
 dependencies = [
  "chip8",
+ "consoles",
  "cortex-m",
  "cortex-m-rt",
  "critical-section",
@@ -1703,7 +1673,18 @@ dependencies = [
  "static_cell",
  "strum",
  "tufty",
+ "tufty-love",
  "tufty_sys",
+]
+
+[[package]]
+name = "tufty-love"
+version = "0.1.0"
+dependencies = [
+ "cc",
+ "embedded-graphics",
+ "selection_ui",
+ "tufty",
 ]
 
 [[package]]

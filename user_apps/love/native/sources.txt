@@ -1,0 +1,3 @@
+lapi lauxlib lbaselib lcode lctype ldebug ldo ldump lfunc lgc llex lmathlib
+lmem lobject lopcodes lparser lstate lstring lstrlib ltable ltablib ltm
+lundump lvm lzio

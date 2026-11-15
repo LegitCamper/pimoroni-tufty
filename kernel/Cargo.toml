@@ -37,5 +37,7 @@ tufty = { path = "../tufty", features = ["builtin"] }
 gboy = { path = "../user_apps/gboy", default-features = false, features = ["builtin"] }
 chip8 = { path = "../user_apps/chip8", default-features = false, features = ["builtin"] }
 snake = { path = "../user_apps/snake", default-features = false, features = ["builtin"] }
+consoles = { path = "../user_apps/consoles", default-features = false, features = ["builtin"] }
+tufty-love = { path = "../user_apps/love", default-features = false, features = ["builtin"] }
 cyw43 = { version = "0.5", optional = true }
 cyw43-pio = { version = "0.8", optional = true }

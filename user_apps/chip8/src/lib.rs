@@ -23,7 +23,10 @@ pub fn run() {
             .iter()
             .map(|path| path.rsplit('/').next().unwrap_or(path))
             .collect();
-        let Ok(Some(selected)) = SelectionUi::new(&labels).run_selection_ui(&mut display) else {
+        let Ok(Some(selected)) = SelectionUi::new(&labels)
+            .with_title("CHIP-8 / SUPER-CHIP")
+            .run_selection_ui(&mut display)
+        else {
             return;
         };
         let path = &files[selected];
