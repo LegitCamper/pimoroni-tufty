@@ -1,0 +1,16 @@
+[workspace]
+resolver = "3"
+members = ["kernel", "tufty_sys", "tufty", "selection_ui", "user_apps/snake", "user_apps/gboy", "user_apps/chip8"]
+
+[profile.release]
+opt-level = 3
+lto = true
+codegen-units = 1
+debug = true
+
+[profile.release-binary]
+inherits = "release"
+debug = false
+
+[profile.dev]
+opt-level = 1

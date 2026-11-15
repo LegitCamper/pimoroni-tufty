@@ -1,0 +1,32 @@
+MEMORY
+{
+  RAM : ORIGIN = 0x0, LENGTH = 200K
+}
+
+SECTIONS
+{
+  .tufty_app 0 (INFO) : { KEEP(*(.tufty_app)); }
+  .text : ALIGN(4)
+  {
+      *(.text .text.*);
+      *(.rodata .rodata.*);
+  } > RAM
+
+  .data : ALIGN(4)
+  {
+      *(.data .data.*);
+  } > RAM
+
+  .bss : ALIGN(4)
+  {
+      *(.bss .bss.*);
+      *(COMMON);
+  } > RAM
+
+  .syscall_table (NOLOAD) : ALIGN(4)
+  {
+      __user_reloc_start = .;
+      KEEP(*(.user_reloc*));
+      __user_reloc_end = .;
+  } > RAM
+}

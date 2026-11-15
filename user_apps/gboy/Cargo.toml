@@ -1,0 +1,30 @@
+[package]
+name = "gboy"
+version = "0.1.0"
+edition = "2024"
+
+[features]
+default = ["standalone"]
+standalone = []
+builtin = ["tufty/builtin"]
+
+[lib]
+path = "src/lib.rs"
+test = false
+bench = false
+
+[[bin]]
+name = "gboy"
+path = "src/main.rs"
+required-features = ["standalone"]
+test = false
+bench = false
+
+[build-dependencies]
+bindgen = "0.71.0"
+cc = "1.2.44"
+
+[dependencies]
+tufty = { path = "../../tufty" }
+selection_ui = { path = "../../selection_ui" }
+embedded-graphics = "0.8.1"

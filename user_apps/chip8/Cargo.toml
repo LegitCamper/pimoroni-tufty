@@ -1,0 +1,26 @@
+[package]
+name = "chip8"
+version = "0.1.0"
+edition = "2024"
+build = "../build.rs"
+
+[features]
+default = ["standalone"]
+standalone = []
+builtin = ["tufty/builtin"]
+
+[lib]
+path = "src/lib.rs"
+test = false
+bench = false
+
+[[bin]]
+name = "chip8"
+required-features = ["standalone"]
+test = false
+bench = false
+
+[dependencies]
+tufty = { path = "../../tufty" }
+selection_ui = { path = "../../selection_ui" }
+embedded-graphics = "0.8.1"

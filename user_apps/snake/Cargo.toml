@@ -1,0 +1,28 @@
+[package]
+name = "snake"
+version = "0.1.0"
+edition = "2024"
+build = "../build.rs"
+
+[features]
+default = ["standalone"]
+standalone = []
+builtin = ["tufty/builtin"]
+
+[lib]
+path = "src/lib.rs"
+test = false
+bench = false
+
+[[bin]]
+name = "snake"
+path = "src/main.rs"
+required-features = ["standalone"]
+test = false
+bench = false
+
+[dependencies]
+tufty = { path = "../../tufty" }
+embedded-graphics = "0.8.1"
+embedded-snake = { git = "https://github.com/LegitCamper/embedded-snake-rs" }
+rand = { version = "0.9.0", default-features = false }

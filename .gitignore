@@ -1,0 +1,5 @@
+/target/
+/dist/
+/firmware/*.bin
+__pycache__/
+*.pyc

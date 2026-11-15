@@ -1,0 +1,12 @@
+[package]
+name = "tufty"
+version = "0.1.0"
+edition = "2024"
+
+[features]
+builtin = ["tufty_sys/builtin"]
+
+[dependencies]
+tufty_sys = { path = "../tufty_sys" }
+embedded-graphics = "0.8.1"
+rand_core = "0.9.3"

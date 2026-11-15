@@ -1,0 +1,22 @@
+[package]
+name = "tufty_sys"
+version = "0.1.0"
+edition = "2024"
+
+[features]
+default = ["alloc"]
+alloc = []
+builtin = []
+defmt = ["dep:defmt"]
+
+[dependencies]
+miniz_oxide = { version = "0.8", default-features = false, features = ["with-alloc"] }
+strum = { version = "0.27.2", default-features = false, features = ["derive"] }
+bitflags = "2.9.4"
+embedded-graphics = "0.8.1"
+defmt = { version = "0.3", optional = true }
+
+[dev-dependencies]
+embedded-alloc = { version = "0.6", default-features = false, features = ["llff"] }
+critical-section = { version = "1.2", features = ["std"] }
+
