@@ -27,6 +27,7 @@ Verified against primary sources:
 | Function | Pins / implementation |
 | --- | --- |
 | UP, DOWN, A, B, C, HOME | GPIO 11, 6, 7, 9, 10, 22; active low, 20 ms debounce |
+| RESET hold / front-button wake | GPIO 14 / 15; active low |
 | Qw/ST Pad | I2C0 SDA 4 / SCL 5; first device at 0x21, 0x23, 0x25, 0x27 |
 | Pad inputs | D-pad, A/B/X/Y, start/select; simultaneous held-state bitmask |
 | Pad LEDs | Four active-low TCA9555 outputs; asynchronous requested-state API |
@@ -36,9 +37,12 @@ Verified against primary sources:
 | Radio | ON 23, data/IRQ 24, CS 25, CLK 29; PIO0/DMA1 |
 
 Kernel uses the HAL's 150 MHz default, not an unvalidated overclock. GPIO42/43
-sensors, RTC, battery measurement, rear LEDs and sleep management are not yet
-implemented. RESET retains its hardware function; Badgeware's disk-mode and
-long-press-sleep gestures are not provided by this firmware.
+sensors, RTC, battery measurement and rear LEDs are not yet implemented.
+Tap RESET to reboot; hold RESET for two seconds to request deep sleep. Press a
+front button (UP, DOWN, A, B or C), or tap RESET, to boot back to the launcher.
+Sleep is checked during reset startup, before apps or peripherals start; it does
+not preserve a running game. The sleep/wake path is build-tested, not yet
+hardware-validated. Badgeware's double-tap disk mode is not implemented.
 
 ## Included and removed
 

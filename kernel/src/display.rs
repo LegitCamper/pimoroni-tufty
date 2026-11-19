@@ -120,13 +120,22 @@ pub async fn display_task(mut panel: Panel) {
     panel.command(0x36, &[0x90]).await;
     panel.command(0x2a, &[0, 0, 0, 239]).await;
     panel.command(0x2b, &[0, 0, 1, 63]).await;
+    let mut line = [0u8; SCREEN_HEIGHT * 2];
+    panel.command(0x2c, &[]).await;
+    panel.cs.set_low();
+    panel.dc.set_high();
+    for _ in 0..SCREEN_WIDTH {
+        panel.write(&line).await;
+    }
+    panel.cs.set_high();
     panel.command(0x29, &[]).await;
+    Timer::after_millis(20).await;
+    panel.backlight.set_high();
     // SAFETY: this task initializes the static buffer once; mutex guards every subsequent access.
     *FRAMEBUFFER.lock().await = Some(FrameBuffer {
         pixels: unsafe { &mut *core::ptr::addr_of_mut!(PIXELS) },
-        dirty: true,
+        dirty: false,
     });
-    let mut line = [0u8; SCREEN_HEIGHT * 2];
     loop {
         {
             let mut guard = FRAMEBUFFER.lock().await;
@@ -143,7 +152,6 @@ pub async fn display_task(mut panel: Panel) {
                     panel.write(&line).await;
                 }
                 panel.cs.set_high();
-                panel.backlight.set_high();
                 frame.dirty = false;
             }
         }

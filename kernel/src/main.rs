@@ -10,6 +10,7 @@ mod display;
 mod elf;
 mod heap;
 mod input;
+mod power;
 mod psram;
 mod runtime;
 mod storage;
@@ -27,7 +28,7 @@ use embassy_rp::{
     i2c::{self, I2c},
     multicore::{Stack, spawn_core1},
     peripherals::{I2C0, PIO0, PIO1},
-    pio::{self, Config, Direction, FifoJoin, Pio, ShiftConfig, ShiftDirection, program::pio_asm},
+    pio::{self, Config, FifoJoin, Pio, ShiftConfig, ShiftDirection, program::pio_asm},
 };
 use embassy_sync::{blocking_mutex::raw::CriticalSectionRawMutex, channel::Channel};
 use embassy_time::{Instant, Timer};
@@ -58,6 +59,8 @@ pub static BINARY_CH: Channel<
 #[embassy_executor::main]
 async fn main(spawner: Spawner) {
     let peripherals = embassy_rp::init(Default::default());
+    let backlight = Output::new(peripherals.PIN_26, Level::Low);
+    power::check_reset(peripherals.PIN_14).await;
     runtime::init();
     builtin::init();
     let _power = Output::new(peripherals.PIN_41, Level::High);
@@ -133,8 +136,19 @@ async fn main(spawner: Spawner) {
     };
     config.clock_divider = fixed::types::U24F8::from_num(4);
     sm0.set_config(&config);
-    sm0.set_pin_dirs(Direction::Out, &refs);
-    sm0.set_pin_dirs(Direction::Out, &[&write]);
+    // ponytail: PIO1/SM0 only; use set_pin_dirs once Embassy handles GPIOBASE there.
+    let pinctrl = embassy_rp::pac::PIO1.sm(0).pinctrl();
+    let saved_pinctrl = pinctrl.read();
+    for pin in refs.into_iter().chain(core::iter::once(&write)) {
+        pinctrl.modify(|control| {
+            control.set_set_base(pin.pin() - 16);
+            control.set_set_count(1);
+        });
+        // SAFETY: SM0 is disabled; SET PINDIRS only enables our owned LCD outputs.
+        unsafe { sm0.exec_instr(0xe081) };
+    }
+    pinctrl.write_value(saved_pinctrl);
+    assert_eq!(embassy_rp::pac::PIO1.dbg_padoe().read(), 0x00ff_4000);
     sm0.set_enable(true);
     spawner
         .spawn(display::display_task(display::Panel {
@@ -144,7 +158,7 @@ async fn main(spawner: Spawner) {
             cs: Output::new(peripherals.PIN_27, Level::High),
             dc: Output::new(peripherals.PIN_28, Level::High),
             read: Output::new(peripherals.PIN_31, Level::High),
-            backlight: Output::new(peripherals.PIN_26, Level::Low),
+            backlight,
         }))
         .unwrap();
     #[cfg(feature = "wifi")]
