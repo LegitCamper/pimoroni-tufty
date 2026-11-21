@@ -56,7 +56,7 @@ hardware-validated. Badgeware's double-tap disk mode is not implemented.
   apps still use the validated ELF loader.
 - Shared ROM picker lives in `user_apps/selection_ui`: five cartridge rows,
   high-contrast mint selection, page/count indicators, clipped filenames,
-  gamepad/front-button navigation, key repeat and an empty-library screen.
+  gamepad navigation, key repeat and an empty-library screen.
 - Game Boy fits the whole picture into 266x240, centered, with nearest-neighbor
   scaling. No cropped 320x288 image. Simultaneous buttons use the new bitmask API.
 - CHIP-8 includes an original animated demo when no ROMs are installed.
@@ -225,17 +225,33 @@ No arbitrary BIOS discovery, save-state UI, cheats or per-game settings included
 
 ## Controls and app API
 
-Launcher: UP/DOWN browse; pad LEFT/RIGHT also browse; A launches. HOME exits apps
-that cooperate. Snake works without the pad: UP/DOWN plus A=left, B=right.
-Game Boy needs the pad for full controls; A/B are actions, C or START is Start,
-SELECT is Select, HOME or pad X exits.
+Badge UP/DOWN adjust backlight brightness by 10 percentage points per press,
+between 10% and 100%. Holding does not repeat; pressing both does nothing.
+Brightness starts at 100% after reboot and changes even on a static screen.
+The backlight stays off until the startup black frame is complete.
 
-Shared ROM picker: UP/DOWN moves, A/START launches, B/HOME backs out, C/RIGHT pages
-forward and LEFT pages back. New console games use pad directions, A/B, C/START
+Badge A/B/C reach userland as `Buttons::BADGE_A`, `BADGE_B`, and `BADGE_C` through
+`buttons()`. Apps may handle or ignore them; the kernel assigns no actions or
+legacy key events. Badge A/B no longer alias controller A/B. `BADGE_C` aliases
+the existing `C` bit for compatibility with app-defined C actions. Badge
+UP/DOWN never reach app input. Dedicated HOME remains `Buttons::HOME` (or Esc
+through `get_key()`); app exit is cooperative, not forced.
+
+Launcher: controller UP/DOWN/LEFT/RIGHT browse; controller A launches. Snake uses
+the controller D-pad (A/B remain left/right aliases). Game Boy uses controller
+A/B for actions, badge C or controller START for Start, and SELECT for Select.
+Dedicated HOME exits; controller X no longer aliases HOME.
+
+The controller's `+` button is `Buttons::START`; `-` is `Buttons::SELECT`.
+Both reach apps independently, including when held together. The legacy
+`get_key()` adapter emits Tab for `+` and Del for `-`; neither adjusts brightness
+or aliases HOME. Each app decides what Start/Select do.
+
+Shared ROM picker: controller UP/DOWN moves, A/START launches, B/HOME backs out,
+badge C or controller RIGHT pages forward and LEFT pages back. New console games use pad directions, A/B, C/START
 and SELECT. SNES also uses X/Y; hold C+X for L or C+Y for R (chord suppresses Start
 and face actions). GBA maps X/Y to L/R. HOME or START+SELECT returns to launcher.
-Badge buttons alone cannot provide all directions; Qw/ST Pad is required for full
-NES/SNES/GB/GBC/GBA controls.
+Qw/ST Pad is required for launcher navigation and directional game controls.
 
 CHIP-8 maps UP/DOWN/LEFT/RIGHT to 2/8/4/6, A/B to 5/0, X/Y to 1/3,
 C or START to F and SELECT to C. HOME or START+SELECT exits. Games requiring the
@@ -254,7 +270,9 @@ let _ = gamepad_leds(0b0101);
 `get_key()` remains an event adapter for ported apps, under `tufty::input`, not
 a keyboard driver. Games should use `buttons()` for held/simultaneous input so
 event queue overflow cannot leave a button stuck. Syscall slots are append-only;
-this fork has 23 slots and requires rebuilding all apps.
+this fork has 23 slots and requires rebuilding all apps. The badge input split
+adds button bits without adding or renumbering syscall slots; rebuild apps to
+use the new `BADGE_A` and `BADGE_B` flags.
 
 ## PNG icon embedded in an app
 
@@ -305,7 +323,8 @@ do not produce sound. No audio pins or output driver are configured.
 
 1. Boot with no pack; builtin cards and the CHIP-8 demo must remain available.
 2. Confirm full-screen orientation, RGB order, backlight, and HOME/RESET behavior.
-3. Exercise all five front buttons and simultaneous pad inputs; unplug/replug pad.
+3. Check badge UP/DOWN brightness limits and reboot default; verify badge A/B/C
+   are distinct from pad actions, dedicated HOME exits, and pad hot-plug works.
 4. Run Snake, bundled CHIP-8 demo, and legally obtained GB, NES, SNES, GBC and GBA
    cartridges within the documented limits. Measure speed; do not assume 60 FPS.
 5. Alternate builtin/ELF launches, including missing/invalid ROM errors; verify

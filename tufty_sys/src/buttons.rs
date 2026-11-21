@@ -13,6 +13,37 @@ bitflags::bitflags! {
         const START = 1 << 9;
         const SELECT = 1 << 10;
         const HOME = 1 << 11;
+        const BADGE_A = 1 << 12;
+        const BADGE_B = 1 << 13;
+        const BADGE_C = Self::C.bits();
+    }
+}
+
+pub const BADGE_BUTTONS: [Buttons; 6] = [
+    Buttons::UP,
+    Buttons::DOWN,
+    Buttons::BADGE_A,
+    Buttons::BADGE_B,
+    Buttons::BADGE_C,
+    Buttons::HOME,
+];
+
+pub fn app_buttons(badge: Buttons, gamepad: Buttons) -> Buttons {
+    (badge - (Buttons::UP | Buttons::DOWN)) | gamepad
+}
+
+pub fn adjust_brightness(level: u8, current: Buttons, previous: Buttons) -> u8 {
+    let level = level.clamp(10, 100);
+    if current.contains(Buttons::UP | Buttons::DOWN) {
+        return level;
+    }
+    let pressed = current - previous;
+    if pressed.contains(Buttons::UP) {
+        level.saturating_add(10).min(100)
+    } else if pressed.contains(Buttons::DOWN) {
+        level.saturating_sub(10).max(10)
+    } else {
+        level
     }
 }
 
@@ -57,7 +88,7 @@ impl ResetHold {
 #[derive(Default)]
 pub struct Debouncer {
     stable: u32,
-    counters: [u8; 12],
+    counters: [u8; 14],
 }
 impl Debouncer {
     pub fn sample(&mut self, raw: Buttons) -> Buttons {
@@ -80,6 +111,97 @@ impl Debouncer {
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    #[test]
+    fn gamepad_plus_minus_reach_apps_as_start_select() {
+        for (register, expected) in [
+            (1 << 11, Buttons::START),
+            (1 << 5, Buttons::SELECT),
+            ((1 << 11) | (1 << 5), Buttons::START | Buttons::SELECT),
+        ] {
+            let pad = gamepad_buttons(register);
+            assert_eq!(pad, expected);
+            let mut debounce = Debouncer::default();
+            for _ in 0..3 {
+                assert!(debounce.sample(pad).is_empty());
+            }
+            assert_eq!(
+                app_buttons(Buttons::empty(), debounce.sample(pad)),
+                expected
+            );
+            assert_eq!(
+                app_buttons(Buttons::UP | Buttons::DOWN | Buttons::BADGE_A, pad),
+                expected | Buttons::BADGE_A,
+            );
+            for _ in 0..3 {
+                assert_eq!(debounce.sample(Buttons::empty()), expected);
+            }
+            assert!(debounce.sample(Buttons::empty()).is_empty());
+        }
+    }
+
+    #[test]
+    fn badge_buttons_are_distinct_and_brightness_does_not_reach_apps() {
+        let badge = BADGE_BUTTONS
+            .into_iter()
+            .fold(Buttons::empty(), |all, button| all | button);
+        let actions = Buttons::BADGE_A | Buttons::BADGE_B | Buttons::BADGE_C;
+        assert_eq!(
+            app_buttons(badge, Buttons::empty()),
+            actions | Buttons::HOME
+        );
+        assert!((actions & (Buttons::A | Buttons::B)).is_empty());
+        assert_eq!(Buttons::BADGE_C, Buttons::C);
+        let pad = gamepad_buttons((1 << 14) | (1 << 12) | (1 << 1));
+        assert_eq!(
+            app_buttons(badge, pad),
+            actions | Buttons::HOME | Buttons::A | Buttons::B | Buttons::UP
+        );
+        assert_eq!(app_buttons(Buttons::empty(), pad), pad);
+        assert_eq!(app_buttons(actions, Buttons::empty()), actions);
+    }
+
+    #[test]
+    fn debounce_preserves_all_badge_actions_and_home() {
+        let actions = Buttons::BADGE_A | Buttons::BADGE_B | Buttons::BADGE_C | Buttons::HOME;
+        let mut debounce = Debouncer::default();
+        for _ in 0..3 {
+            assert!(debounce.sample(actions).is_empty());
+        }
+        assert_eq!(debounce.sample(actions), actions);
+        for _ in 0..3 {
+            assert_eq!(debounce.sample(Buttons::BADGE_B), actions);
+        }
+        assert_eq!(debounce.sample(Buttons::BADGE_B), Buttons::BADGE_B);
+    }
+
+    #[test]
+    fn brightness_steps_on_press_and_stays_visible() {
+        assert_eq!(adjust_brightness(50, Buttons::UP, Buttons::empty()), 60);
+        assert_eq!(adjust_brightness(50, Buttons::DOWN, Buttons::empty()), 40);
+        assert_eq!(adjust_brightness(50, Buttons::UP, Buttons::UP), 50);
+        assert_eq!(adjust_brightness(50, Buttons::empty(), Buttons::DOWN), 50);
+        assert_eq!(
+            adjust_brightness(50, Buttons::UP | Buttons::DOWN, Buttons::DOWN),
+            50
+        );
+        assert_eq!(adjust_brightness(100, Buttons::UP, Buttons::empty()), 100);
+        assert_eq!(adjust_brightness(10, Buttons::DOWN, Buttons::empty()), 10);
+        assert_eq!(adjust_brightness(0, Buttons::empty(), Buttons::empty()), 10);
+        assert_eq!(
+            adjust_brightness(255, Buttons::empty(), Buttons::empty()),
+            100
+        );
+        assert_eq!(
+            adjust_brightness(
+                50,
+                Buttons::BADGE_A | Buttons::BADGE_B | Buttons::BADGE_C,
+                Buttons::empty()
+            ),
+            50
+        );
+    }
+
     #[test]
     fn reset_requires_two_seconds_of_continuous_hold() {
         let mut hold = ResetHold::default();

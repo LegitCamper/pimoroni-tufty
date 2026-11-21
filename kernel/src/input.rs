@@ -6,7 +6,7 @@ use embassy_rp::{
 };
 use embassy_time::{Duration, Timer, with_timeout};
 use tufty_sys::{
-    buttons::{Buttons, Debouncer, gamepad_buttons},
+    buttons::{BADGE_BUTTONS, Buttons, Debouncer, adjust_brightness, app_buttons, gamepad_buttons},
     input::{KeyCode, KeyEvent, KeyState},
 };
 
@@ -16,14 +16,6 @@ pub static LEDS: AtomicU8 = AtomicU8::new(0);
 
 #[embassy_executor::task]
 pub async fn input_task(pins: [Input<'static>; 6], mut bus: I2c<'static, I2C0, Async>) {
-    let front = [
-        Buttons::UP,
-        Buttons::DOWN,
-        Buttons::A,
-        Buttons::B,
-        Buttons::C,
-        Buttons::HOME,
-    ];
     let mapping = [
         (Buttons::UP, KeyCode::Up),
         (Buttons::DOWN, KeyCode::Down),
@@ -31,11 +23,13 @@ pub async fn input_task(pins: [Input<'static>; 6], mut bus: I2c<'static, I2C0, A
         (Buttons::RIGHT, KeyCode::Right),
         (Buttons::A, KeyCode::Enter),
         (Buttons::B, KeyCode::Backspace),
-        (Buttons::C | Buttons::START, KeyCode::Tab),
+        (Buttons::START, KeyCode::Tab),
         (Buttons::SELECT, KeyCode::Del),
-        (Buttons::HOME | Buttons::X, KeyCode::Esc),
+        (Buttons::HOME, KeyCode::Esc),
     ];
-    let mut debounce = Debouncer::default();
+    let mut badge_debounce = Debouncer::default();
+    let mut pad_debounce = Debouncer::default();
+    let mut previous_badge = Buttons::empty();
     let mut previous = Buttons::empty();
     let mut address = None;
     let mut retry = 0u16;
@@ -59,11 +53,19 @@ pub async fn input_task(pins: [Input<'static>; 6], mut bus: I2c<'static, I2C0, A
         }
         retry = retry.saturating_sub(1);
         let mut raw = Buttons::empty();
-        for (pin, button) in pins.iter().zip(front) {
+        for (pin, button) in pins.iter().zip(BADGE_BUTTONS) {
             if pin.is_low() {
                 raw |= button;
             }
         }
+        let badge = badge_debounce.sample(raw);
+        let brightness = crate::display::BRIGHTNESS.load(Ordering::Relaxed);
+        crate::display::BRIGHTNESS.store(
+            adjust_brightness(brightness, badge, previous_badge),
+            Ordering::Relaxed,
+        );
+        previous_badge = badge;
+        let mut pad = Buttons::empty();
         if let Some(device) = address {
             let mut bytes = [0; 2];
             if matches!(
@@ -74,7 +76,7 @@ pub async fn input_task(pins: [Input<'static>; 6], mut bus: I2c<'static, I2C0, A
                 .await,
                 Ok(Ok(()))
             ) {
-                raw |= gamepad_buttons(u16::from_le_bytes(bytes));
+                pad = gamepad_buttons(u16::from_le_bytes(bytes));
                 let desired = LEDS.load(Ordering::Relaxed);
                 if desired != sent_leds {
                     let mut output = 0u16;
@@ -100,7 +102,7 @@ pub async fn input_task(pins: [Input<'static>; 6], mut bus: I2c<'static, I2C0, A
             }
         }
         GAMEPAD.store(address.is_some(), Ordering::Release);
-        let current = debounce.sample(raw);
+        let current = app_buttons(badge, pad_debounce.sample(pad));
         BUTTONS.store(current.bits(), Ordering::Release);
         for (buttons, key) in mapping {
             let was_down = previous.intersects(buttons);

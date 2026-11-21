@@ -1,9 +1,11 @@
 use core::convert::Infallible;
+use core::sync::atomic::{AtomicU8, Ordering};
 use embassy_rp::{
     Peri,
     gpio::Output,
     peripherals::{DMA_CH0, PIO1},
     pio::{Common, StateMachine},
+    pwm::{Config, Pwm},
 };
 use embassy_sync::{blocking_mutex::raw::CriticalSectionRawMutex, mutex::Mutex};
 use embassy_time::Timer;
@@ -13,6 +15,16 @@ pub const SCREEN_WIDTH: usize = 320;
 pub const SCREEN_HEIGHT: usize = 240;
 pub static FRAMEBUFFER: Mutex<CriticalSectionRawMutex, Option<FrameBuffer>> = Mutex::new(None);
 static mut PIXELS: [u16; SCREEN_WIDTH * SCREEN_HEIGHT] = [0; SCREEN_WIDTH * SCREEN_HEIGHT];
+// ponytail: brightness is RAM-only and tap-stepped; add settings/repeat when needed.
+pub static BRIGHTNESS: AtomicU8 = AtomicU8::new(100);
+
+pub fn backlight_config() -> Config {
+    let mut config = Config::default();
+    config.top = 999;
+    config.divider = 8.into();
+    config.compare_a = 0;
+    config
+}
 
 pub struct FrameBuffer {
     pixels: &'static mut [u16],
@@ -57,7 +69,7 @@ pub struct Panel {
     pub cs: Output<'static>,
     pub dc: Output<'static>,
     pub read: Output<'static>,
-    pub backlight: Output<'static>,
+    pub backlight: Pwm<'static>,
 }
 impl Panel {
     async fn write(&mut self, bytes: &[u8]) {
@@ -130,13 +142,20 @@ pub async fn display_task(mut panel: Panel) {
     panel.cs.set_high();
     panel.command(0x29, &[]).await;
     Timer::after_millis(20).await;
-    panel.backlight.set_high();
+    let mut backlight = backlight_config();
+    backlight.compare_a = u16::from(BRIGHTNESS.load(Ordering::Relaxed)) * 10;
+    panel.backlight.set_config(&backlight);
     // SAFETY: this task initializes the static buffer once; mutex guards every subsequent access.
     *FRAMEBUFFER.lock().await = Some(FrameBuffer {
         pixels: unsafe { &mut *core::ptr::addr_of_mut!(PIXELS) },
         dirty: false,
     });
     loop {
+        let duty = u16::from(BRIGHTNESS.load(Ordering::Relaxed)) * 10;
+        if backlight.compare_a != duty {
+            backlight.compare_a = duty;
+            panel.backlight.set_config(&backlight);
+        }
         {
             let mut guard = FRAMEBUFFER.lock().await;
             if let Some(frame) = guard.as_mut().filter(|frame| frame.dirty) {

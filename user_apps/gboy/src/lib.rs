@@ -223,7 +223,7 @@ fn main() {
 
     loop {
         let buttons = tufty::buttons();
-        if buttons.intersects(Buttons::HOME | Buttons::X) {
+        if buttons.intersects(Buttons::HOME) {
             // SAFETY: cartridge RAM remains owned by the app core.
             unsafe { write_save(gb) };
             break;

@@ -29,6 +29,7 @@ use embassy_rp::{
     multicore::{Stack, spawn_core1},
     peripherals::{I2C0, PIO0, PIO1},
     pio::{self, Config, FifoJoin, Pio, ShiftConfig, ShiftDirection, program::pio_asm},
+    pwm::Pwm,
 };
 use embassy_sync::{blocking_mutex::raw::CriticalSectionRawMutex, channel::Channel};
 use embassy_time::{Instant, Timer};
@@ -59,7 +60,11 @@ pub static BINARY_CH: Channel<
 #[embassy_executor::main]
 async fn main(spawner: Spawner) {
     let peripherals = embassy_rp::init(Default::default());
-    let backlight = Output::new(peripherals.PIN_26, Level::Low);
+    let backlight = Pwm::new_output_a(
+        peripherals.PWM_SLICE5,
+        peripherals.PIN_26,
+        display::backlight_config(),
+    );
     power::check_reset(peripherals.PIN_14).await;
     runtime::init();
     builtin::init();
